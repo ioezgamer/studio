@@ -11,12 +11,14 @@ const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 if (!serviceAccountJson) {
   // Lanza un error claro si la variable de entorno no está configurada.
-  // Esto detiene el servidor y muestra un mensaje útil en la consola.
   throw new Error('La variable de entorno FIREBASE_SERVICE_ACCOUNT_KEY no está configurada. Revisa tu archivo .env.local.');
 }
 
 try {
-  const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
+  // Reemplaza los escapes de nueva línea literales por caracteres de nueva línea reales.
+  // Esto es crucial para que JSON.parse() maneje correctamente la clave privada.
+  const correctedJsonString = serviceAccountJson.replace(/\\n/g, '\n');
+  const serviceAccount: ServiceAccount = JSON.parse(correctedJsonString);
 
   if (getApps().length === 0) {
     initializeApp({
