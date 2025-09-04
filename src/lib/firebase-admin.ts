@@ -3,35 +3,34 @@ import admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { config } from 'dotenv';
-
-config();
 
 let adminDb: admin.firestore.Firestore | null = null;
 
-const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+// Lee el contenido del JSON de la variable de entorno
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 if (!serviceAccountJson) {
-  console.error("ERROR CRÍTICO: La variable de entorno FIREBASE_SERVICE_ACCOUNT_JSON no está configurada.");
-  console.error("Asegúrate de tener un archivo .env.local con el contenido de tu clave de servicio JSON.");
-} else {
-  try {
-    const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
+  // Lanza un error claro si la variable de entorno no está configurada.
+  // Esto detiene el servidor y muestra un mensaje útil en la consola.
+  throw new Error('La variable de entorno FIREBASE_SERVICE_ACCOUNT_KEY no está configurada. Revisa tu archivo .env.local.');
+}
 
-    if (getApps().length === 0) {
-      initializeApp({
-        credential: cert(serviceAccount),
-      });
-      console.log("Firebase Admin SDK inicializado correctamente.");
-    }
-    
-    adminDb = getFirestore();
+try {
+  const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
 
-  } catch (error) {
-    console.error("Error al parsear o inicializar Firebase Admin SDK:", error);
-    // Opcional: podrías querer que la app falle ruidosamente aquí si la conexión es crítica.
-    // throw new Error("No se pudo inicializar Firebase Admin SDK. Revisa las credenciales.");
+  if (getApps().length === 0) {
+    initializeApp({
+      credential: cert(serviceAccount),
+    });
+    console.log("Firebase Admin SDK inicializado correctamente.");
   }
+  
+  adminDb = getFirestore();
+
+} catch (error) {
+  console.error("Error al parsear o inicializar Firebase Admin SDK:", error);
+  // Lanza un error si el JSON es inválido para detener la ejecución
+  throw new Error("No se pudo inicializar Firebase Admin SDK. El contenido de la variable de entorno FIREBASE_SERVICE_ACCOUNT_KEY podría ser inválido.");
 }
 
 export { adminDb };
