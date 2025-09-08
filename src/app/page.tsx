@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { History, Wrench, LogOut } from 'lucide-react';
+import { History, Wrench, LogOut, LayoutDashboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MaintenanceForm } from '@/components/maintenance-form';
 import { MaintenanceHistory } from '@/components/maintenance-history';
+import { Dashboard } from '@/components/dashboard'; // Importar el nuevo componente
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -13,28 +14,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export default function Home() {
   const { user, userRole, loading, logout } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = React.useState("history");
+  const [activeTab, setActiveTab] = React.useState("dashboard");
 
   const canEdit = userRole === 'admin' || userRole === 'editor';
 
   React.useEffect(() => {
-    // Corregido: Solo redirigir si la carga ha terminado y no hay usuario.
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
   
-  // Si el usuario puede editar, la pestaña por defecto es el registro.
-  // Si no, es el historial.
-  React.useEffect(() => {
-    if(canEdit) {
-      setActiveTab("dashboard");
-    } else {
-      setActiveTab("history");
-    }
-  }, [canEdit]);
-
-
   const handleLogout = async () => {
     await logout();
     router.push('/login');
@@ -49,7 +38,8 @@ export default function Home() {
   }
   
   const tabs = [
-    canEdit && { value: "dashboard", label: "Registro", icon: Wrench },
+    { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    canEdit && { value: "register", label: "Registro", icon: Wrench },
     { value: "history", label: "Historial", icon: History },
   ].filter(Boolean) as { value: string; label: string; icon: React.ElementType }[];
 
@@ -92,7 +82,7 @@ export default function Home() {
         </header>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-           <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-6">
+           <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-6">
               {tabs.map(({ value, label, icon: Icon }) => (
                 <TabsTrigger key={value} value={value}>
                   <Icon className="mr-2 h-4 w-4" />
@@ -100,14 +90,17 @@ export default function Home() {
                 </TabsTrigger>
               ))}
             </TabsList>
+            <TabsContent value="dashboard">
+              <Dashboard />
+            </TabsContent>
             {canEdit && (
-              <TabsContent value="dashboard">
+              <TabsContent value="register">
                 <MaintenanceForm />
               </TabsContent>
             )}
-          <TabsContent value="history">
-            <MaintenanceHistory />
-          </TabsContent>
+            <TabsContent value="history">
+              <MaintenanceHistory />
+            </TabsContent>
         </Tabs>
         
         <footer className="text-center mt-8 text-sm text-muted-foreground">
