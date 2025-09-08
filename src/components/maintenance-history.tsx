@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, MoreHorizontal, Pencil, Trash2, Loader2, Wrench, User, FileKey, Cpu } from "lucide-react";
+import { CalendarIcon, MoreHorizontal, Pencil, Trash2, Loader2, Wrench, User, FileKey, Cpu, Eye, ListChecks, StickyNote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,7 @@ import {
   getCollection
 } from "@/app/actions";
 import { useAuth } from "@/hooks/use-auth";
+import { Separator } from "./ui/separator";
 
 // Types
 type MaintenanceRecord = {
@@ -48,6 +49,7 @@ type MaintenanceRecord = {
   date: Date;
   tasks: { description: string }[];
   status: string;
+  notes?: string;
 };
 
 type EditingRecord = Omit<MaintenanceRecord, 'date'> & {
@@ -64,6 +66,7 @@ export function MaintenanceHistory() {
   const [records, setRecords] = React.useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editingRecord, setEditingRecord] = React.useState<EditingRecord | null>(null);
+  const [viewingRecord, setViewingRecord] = React.useState<MaintenanceRecord | null>(null);
   
   const [equipmentList, setEquipmentList] = React.useState<CollectionItem[]>([]);
   const [assetNumberList, setAssetNumberList] = React.useState<CollectionItem[]>([]);
@@ -195,13 +198,13 @@ export function MaintenanceHistory() {
                   <TableHead>Técnico</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Estado</TableHead>
-                  {(canEdit || canDelete) && <TableHead className="text-right">Acciones</TableHead>}
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={canEdit || canDelete ? 7 : 6} className="text-center">
+                    <TableCell colSpan={7} className="text-center">
                       <div className="flex justify-center items-center p-4">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando registros...
                       </div>
@@ -209,7 +212,7 @@ export function MaintenanceHistory() {
                   </TableRow>
                 ) : records.length === 0 ? (
                    <TableRow>
-                    <TableCell colSpan={canEdit || canDelete ? 7 : 6} className="text-center">
+                    <TableCell colSpan={7} className="text-center">
                       No hay registros de mantenimiento.
                     </TableCell>
                   </TableRow>
@@ -229,36 +232,38 @@ export function MaintenanceHistory() {
                           record.status === "Completado" ? "bg-green-500" : ""
                         }>{record.status}</Badge>
                       </TableCell>
-                      {(canEdit || canDelete) && (
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Abrir menú</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                              {canEdit && (
-                                <DropdownMenuItem onClick={() => handleEdit(record)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Editar
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menú</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => setViewingRecord(record)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver Detalles
+                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => handleEdit(record)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDelete(record.id)} className="text-red-600 focus:text-red-500 focus:bg-destructive/10">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
                                 </DropdownMenuItem>
-                              )}
-                              {canDelete && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDelete(record.id)} className="text-red-600 focus:text-red-500 focus:bg-destructive/10">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -382,6 +387,74 @@ export function MaintenanceHistory() {
               <Button type="submit" onClick={handleSaveEdit}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
+        </Dialog>
+      )}
+
+      {viewingRecord && (
+        <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Detalles del Mantenimiento</DialogTitle>
+                    <DialogDescription>
+                        Registro del {format(viewingRecord.date, "d 'de' MMMM 'de' yyyy", { locale: es })}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <Cpu className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="font-semibold">Equipo</p>
+                                <p>{viewingRecord.equipment}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <FileKey className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="font-semibold">N° de Activo</p>
+                                <p>{viewingRecord.assetNumber}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="font-semibold">Usuario del Equipo</p>
+                                <p>{viewingRecord.user}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Wrench className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="font-semibold">Mantenimiento por</p>
+                                <p>{viewingRecord.technician}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Separator />
+                    <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2"><ListChecks className="h-4 w-4 text-muted-foreground" />Tareas Realizadas</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                            {viewingRecord.tasks.map((task, index) => (
+                                <li key={index}>{task.description}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    {viewingRecord.notes && (
+                        <>
+                          <Separator />
+                          <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2"><StickyNote className="h-4 w-4 text-muted-foreground" />Notas Adicionales</h4>
+                              <p className="text-sm bg-secondary/50 p-3 rounded-md">{viewingRecord.notes}</p>
+                          </div>
+                        </>
+                    )}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button">Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
       )}
     </>

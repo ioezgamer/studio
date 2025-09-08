@@ -148,18 +148,6 @@ function AddItemDialog({ collectionName, onAddItemSuccess }: { collectionName: s
   );
 }
 
-const FormItemWithIcon = ({ icon, children }: { icon: React.ElementType; children: React.ReactNode }) => {
-    const Icon = icon;
-    return (
-        <div className="flex items-center gap-2">
-            <Icon className="h-5 w-5 text-muted-foreground" />
-            <div className="w-full">
-                {children}
-            </div>
-        </div>
-    );
-};
-
 export function MaintenanceForm() {
   const { toast } = useToast();
   const { user, userRole } = useAuth();
@@ -285,6 +273,14 @@ export function MaintenanceForm() {
     if (!user) {
         toast({ variant: "destructive", title: "Error", description: "Debes iniciar sesión para guardar." });
         return;
+    }
+     if (tasks.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No hay tareas",
+        description: "Debes agregar al menos una tarea realizada antes de guardar.",
+      });
+      return;
     }
 
     const tasksToSave: Task[] = tasks.map(({ id, status, ...rest }) => rest);
@@ -441,7 +437,7 @@ export function MaintenanceForm() {
                   <div className="p-3 bg-secondary/50 rounded-lg space-y-2">
                     <p className="text-sm font-medium">Sugerencias para {equipmentType}:</p>
                     <div className="flex flex-wrap gap-2">
-                      {suggestedTasks.map((task, i) => <Button key={i} size="sm" variant="secondary" onClick={() => handleAddSuggestedTask(task)}>{task}</Button>)}
+                      {suggestedTasks.map((task, i) => <Button type="button" key={i} size="sm" variant="secondary" onClick={() => handleAddSuggestedTask(task)}>{task}</Button>)}
                     </div>
                   </div>
                 )}
