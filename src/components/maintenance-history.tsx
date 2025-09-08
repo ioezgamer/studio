@@ -38,6 +38,7 @@ import {
 } from "@/app/actions";
 import { useAuth } from "@/hooks/use-auth";
 import { Separator } from "./ui/separator";
+import { PrintableReport } from "./printable-report";
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -78,10 +79,14 @@ export function MaintenanceHistory() {
   const [userList, setUserList] = React.useState<CollectionItem[]>([]);
   const [technicianList, setTechnicianList] = React.useState<CollectionItem[]>([]);
 
+  const [isPrinting, setIsPrinting] = React.useState(false);
+  const [recordToPrint, setRecordToPrint] = React.useState<MaintenanceRecord | null>(null);
+
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const canDelete = userRole === 'admin';
 
   const detailsContentRef = React.useRef<HTMLDivElement>(null);
+  const printableRef = React.useRef<HTMLDivElement>(null);
 
   const fetchHistory = React.useCallback(async () => {
     setLoading(true);
@@ -206,26 +211,57 @@ export function MaintenanceHistory() {
   };
 
   const handleExportDetails = async (exportType: 'pdf' | 'image') => {
-    if (!detailsContentRef.current) return;
-
-    const canvas = await html2canvas(detailsContentRef.current, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    
-    const fileName = `Detalle_Mantenimiento_${viewingRecord?.assetNumber || 'ID'}_${format(viewingRecord!.date, 'yyyyMMdd')}`;
-
+    if (!viewingRecord) return;
+  
+    const fileName = `Detalle_Mantenimiento_${viewingRecord.assetNumber || 'ID'}_${format(viewingRecord.date, 'yyyyMMdd')}`;
+  
     if (exportType === 'image') {
+      if (!detailsContentRef.current) return;
+      const canvas = await html2canvas(detailsContentRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.href = imgData;
       link.download = `${fileName}.png`;
       link.click();
-    } else {
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`${fileName}.pdf`);
+    } else { // PDF export
+      setRecordToPrint(viewingRecord);
+      setIsPrinting(true);
+  
+      // We need to wait for the next render cycle for the printableRef to be attached
+      setTimeout(async () => {
+        const printableElement = printableRef.current;
+        if (!printableElement) {
+          console.error("Printable element not found.");
+          setIsPrinting(false);
+          setRecordToPrint(null);
+          return;
+        }
+  
+        const canvas = await html2canvas(printableElement, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+  
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        const imgWidth = pdfWidth;
+        const imgHeight = imgWidth / ratio;
+
+        // Check if the image height is greater than the PDF height
+        let height = imgHeight;
+        if(height > pdfHeight) {
+          height = pdfHeight;
+        }
+
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, height);
+        pdf.save(`${fileName}.pdf`);
+  
+        // Cleanup
+        setIsPrinting(false);
+        setRecordToPrint(null);
+      }, 100);
     }
   };
 
@@ -238,7 +274,7 @@ export function MaintenanceHistory() {
               <CardTitle className="text-2xl font-headline">Historial de Mantenimiento</CardTitle>
               <CardDescription>Consulta, edita o elimina registros de mantenimiento pasados.</CardDescription>
             </div>
-            <Button onClick={handleExportToExcel} variant="outline" size="sm" disabled={records.length === 0}>
+            <Button onClick={handleExportToExcel} variant="outline" size="sm" disabled={records.length === 0 || isPrinting}>
               <FileDown className="mr-2 h-4 w-4" />
               Exportar a Excel
             </Button>
@@ -509,8 +545,11 @@ export function MaintenanceHistory() {
                 </div>
                 <DialogFooter className="sm:justify-between">
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => handleExportDetails('image')}><ImageIcon className="mr-2 h-4 w-4" />Exportar como Imagen</Button>
-                      <Button variant="outline" onClick={() => handleExportDetails('pdf')}><FileIcon className="mr-2 h-4 w-4" />Exportar como PDF</Button>
+                      <Button variant="outline" onClick={() => handleExportDetails('image')} disabled={isPrinting}><ImageIcon className="mr-2 h-4 w-4" />Exportar como Imagen</Button>
+                      <Button variant="outline" onClick={() => handleExportDetails('pdf')} disabled={isPrinting}>
+                        {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileIcon className="mr-2 h-4 w-4" />}
+                        Exportar como PDF
+                      </Button>
                     </div>
                     <DialogClose asChild>
                         <Button type="button">Cerrar</Button>
@@ -519,6 +558,15 @@ export function MaintenanceHistory() {
             </DialogContent>
         </Dialog>
       )}
+      
+      {isPrinting && recordToPrint && (
+        <div className="fixed top-0 left-0" style={{ zIndex: -100, opacity: 0 }}>
+          <div ref={printableRef}>
+            <PrintableReport record={recordToPrint} />
+          </div>
+        </div>
+      )}
+
     </>
   );
 }
