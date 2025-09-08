@@ -235,7 +235,7 @@ export async function getCollection(collectionName: string) {
     if (!allowedCollections.includes(collectionName)) {
       throw new Error(`La colección "${collectionName}" no está permitida.`);
     }
-    const snapshot = await adminDb.collection(collectionName).get();
+    const snapshot = await adminDb.collection(collectionName).orderBy('name', 'asc').get();
     const items = snapshot.docs.map(doc => ({
       id: doc.id,
       name: doc.data().name,
