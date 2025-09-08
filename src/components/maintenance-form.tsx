@@ -298,7 +298,15 @@ export function MaintenanceForm() {
         description: "La información de mantenimiento ha sido guardada exitosamente.",
         className: "bg-accent text-accent-foreground"
       });
-      form.reset({ notes: "", status: "Completado", date: new Date() });
+      form.reset({
+        equipment: undefined,
+        assetNumber: undefined,
+        user: undefined,
+        technician: undefined,
+        notes: "", 
+        status: "Completado", 
+        date: new Date() 
+      });
       setTasks([]);
     } else {
       toast({
