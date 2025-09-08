@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, MoreHorizontal, Pencil, Trash2, Loader2, Wrench, User, FileKey, Cpu, Eye, ListChecks, StickyNote } from "lucide-react";
+import { CalendarIcon, MoreHorizontal, Pencil, Trash2, Loader2, Wrench, User, FileKey, Cpu, Eye, ListChecks, StickyNote, FileDown, Image as ImageIcon, File as FileIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +38,11 @@ import {
 } from "@/app/actions";
 import { useAuth } from "@/hooks/use-auth";
 import { Separator } from "./ui/separator";
+
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import * as XLSX from "xlsx";
+
 
 // Types
 type MaintenanceRecord = {
@@ -75,6 +80,8 @@ export function MaintenanceHistory() {
 
   const canEdit = userRole === 'admin' || userRole === 'editor';
   const canDelete = userRole === 'admin';
+
+  const detailsContentRef = React.useRef<HTMLDivElement>(null);
 
   const fetchHistory = React.useCallback(async () => {
     setLoading(true);
@@ -178,14 +185,63 @@ export function MaintenanceHistory() {
     if (editingRecord) {
       setEditingRecord(prev => prev ? { ...prev, [field]: value } : null);
     }
-  }
+  };
+
+  const handleExportToExcel = () => {
+    const dataToExport = records.map(record => ({
+      'Equipo': record.equipment,
+      'N° Activo': record.assetNumber,
+      'Usuario': record.user,
+      'Técnico': record.technician,
+      'Fecha': format(record.date, 'dd/MM/yyyy'),
+      'Estado': record.status,
+      'Tareas Realizadas': record.tasks.map(t => t.description).join('; '),
+      'Notas': record.notes || ''
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Historial de Mantenimiento");
+    XLSX.writeFile(workbook, "HistorialMantenimiento.xlsx");
+  };
+
+  const handleExportDetails = async (format: 'pdf' | 'image') => {
+    if (!detailsContentRef.current) return;
+
+    const canvas = await html2canvas(detailsContentRef.current, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    
+    const fileName = `Detalle_Mantenimiento_${viewingRecord?.assetNumber || 'ID'}_${format(viewingRecord!.date, 'yyyyMMdd')}`;
+
+    if (format === 'image') {
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = `${fileName}.png`;
+      link.click();
+    } else {
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${fileName}.pdf`);
+    }
+  };
+
 
   return (
     <>
       <Card className="w-full shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-headline">Historial de Mantenimiento</CardTitle>
-          <CardDescription>Consulta, edita o elimina registros de mantenimiento pasados.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl font-headline">Historial de Mantenimiento</CardTitle>
+              <CardDescription>Consulta, edita o elimina registros de mantenimiento pasados.</CardDescription>
+            </div>
+            <Button onClick={handleExportToExcel} variant="outline" size="sm" disabled={records.length === 0}>
+              <FileDown className="mr-2 h-4 w-4" />
+              Exportar a Excel
+            </Button>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -399,57 +455,63 @@ export function MaintenanceHistory() {
                         Registro del {format(viewingRecord.date, "d 'de' MMMM 'de' yyyy", { locale: es })}.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-6 py-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                            <Cpu className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <p className="font-semibold">Equipo</p>
-                                <p>{viewingRecord.equipment}</p>
+                <div ref={detailsContentRef} className="bg-background p-6">
+                    <div className="grid gap-6 py-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                                <Cpu className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="font-semibold">Equipo</p>
+                                    <p>{viewingRecord.equipment}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <FileKey className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="font-semibold">N° de Activo</p>
+                                    <p>{viewingRecord.assetNumber}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="font-semibold">Usuario del Equipo</p>
+                                    <p>{viewingRecord.user}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Wrench className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="font-semibold">Mantenimiento por</p>
+                                    <p>{viewingRecord.technician}</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <FileKey className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <p className="font-semibold">N° de Activo</p>
-                                <p>{viewingRecord.assetNumber}</p>
-                            </div>
+                        <Separator />
+                        <div>
+                            <h4 className="font-semibold mb-2 flex items-center gap-2"><ListChecks className="h-4 w-4 text-muted-foreground" />Tareas Realizadas</h4>
+                            <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                                {viewingRecord.tasks.map((task, index) => (
+                                    <li key={index}>{task.description}</li>
+                                ))}
+                            </ul>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <p className="font-semibold">Usuario del Equipo</p>
-                                <p>{viewingRecord.user}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Wrench className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <p className="font-semibold">Mantenimiento por</p>
-                                <p>{viewingRecord.technician}</p>
-                            </div>
-                        </div>
+                        {viewingRecord.notes && (
+                            <>
+                              <Separator />
+                              <div>
+                                  <h4 className="font-semibold mb-2 flex items-center gap-2"><StickyNote className="h-4 w-4 text-muted-foreground" />Notas Adicionales</h4>
+                                  <p className="text-sm bg-secondary/50 p-3 rounded-md">{viewingRecord.notes}</p>
+                              </div>
+                            </>
+                        )}
                     </div>
-                    <Separator />
-                    <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2"><ListChecks className="h-4 w-4 text-muted-foreground" />Tareas Realizadas</h4>
-                        <ul className="list-disc list-inside space-y-1 text-sm pl-2">
-                            {viewingRecord.tasks.map((task, index) => (
-                                <li key={index}>{task.description}</li>
-                            ))}
-                        </ul>
-                    </div>
-                    {viewingRecord.notes && (
-                        <>
-                          <Separator />
-                          <div>
-                              <h4 className="font-semibold mb-2 flex items-center gap-2"><StickyNote className="h-4 w-4 text-muted-foreground" />Notas Adicionales</h4>
-                              <p className="text-sm bg-secondary/50 p-3 rounded-md">{viewingRecord.notes}</p>
-                          </div>
-                        </>
-                    )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between">
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => handleExportDetails('image')}><ImageIcon className="mr-2 h-4 w-4" />Exportar como Imagen</Button>
+                      <Button variant="outline" onClick={() => handleExportDetails('pdf')}><FileIcon className="mr-2 h-4 w-4" />Exportar como PDF</Button>
+                    </div>
                     <DialogClose asChild>
                         <Button type="button">Cerrar</Button>
                     </DialogClose>
