@@ -205,7 +205,7 @@ export function MaintenanceHistory() {
     XLSX.writeFile(workbook, "HistorialMantenimiento.xlsx");
   };
 
-  const handleExportDetails = async (format: 'pdf' | 'image') => {
+  const handleExportDetails = async (exportType: 'pdf' | 'image') => {
     if (!detailsContentRef.current) return;
 
     const canvas = await html2canvas(detailsContentRef.current, { scale: 2 });
@@ -213,7 +213,7 @@ export function MaintenanceHistory() {
     
     const fileName = `Detalle_Mantenimiento_${viewingRecord?.assetNumber || 'ID'}_${format(viewingRecord!.date, 'yyyyMMdd')}`;
 
-    if (format === 'image') {
+    if (exportType === 'image') {
       const link = document.createElement('a');
       link.href = imgData;
       link.download = `${fileName}.png`;
